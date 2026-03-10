@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Network Status{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Network Status</div>
+    <div class="page-subtitle">See which providers have confirmed participation in a specific MA plan</div>
+  </div>
+</div>
+
+<!-- Filter -->
+<form method="get" action="{{ url_for('network') }}" class="filter-card">
+  <div class="filter-field">
+    <label class="field-label">State</label>
+    <select name="state" class="select-field">
+      <option value="">All States</option>
+      {% for s in states %}
+      <option value="{{ s }}" {% if s == state_filter %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-field" style="flex:3">
+    <label class="field-label">Select Plan</label>
+    <select name="plan_key" class="select-field">
+      <option value="">— Choose a plan —</option>
+      {% set last_carrier = namespace(val="") %}
+      {% for p in all_plans %}
+        {% if p.carrier != last_carrier.val %}
+          {% if not loop.first %}</optgroup>{% endif %}
+          <optgroup label="{{ p.carrier }}">
+          {% set last_carrier.val = p.carrier %}
+        {% endif %}
+        <option value="{{ p.plan_key }}"
+          {% if p.plan_key == selected_plan_key %}selected{% endif %}>
+          {{ p.plan_name }}
+        </option>
+      {% endfor %}
+      {% if all_plans %}</optgroup>{% endif %}
+    </select>
+  </div>
+  <div>
+    <label class="field-label">&nbsp;</label>
+    <button type="submit" class="btn-primary-custom">View</button>
+  </div>
+</form>
+
+{% if selected_plan %}
+<div class="plan-callout">
+  <div class="plan-callout-name">{{ selected_plan.plan_name }}</div>
+  <div class="plan-callout-meta">
+    {{ selected_plan.carrier }}
+    &nbsp;&middot;&nbsp; {{ selected_plan.contract_id }}-{{ selected_plan.plan_id }}
+    &nbsp;&middot;&nbsp; {{ selected_plan.state }}
+  </div>
+</div>
+
+{% if providers %}
+<div class="toolbar" style="margin-bottom:16px">
+  <div class="toolbar-left">
+    <span style="font-size:13px;color:var(--text-muted);font-family:var(--font-mono)">
+      {{ providers|length }} provider{{ 's' if providers|length != 1 }} on record
+    </span>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Specialty</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Last Verified</th>
+          <th>Last Reviewed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in providers %}
+        <tr>
+          <td>
+            <a href="{{ url_for('provider_detail', npi=p.npi) }}" class="cell-link">{{ p.name }}</a>
+            {% if p.practice %}<div class="cell-secondary">{{ p.practice }}</div>{% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:13px">{{ p.specialty or "—" }}</td>
+          <td style="color:var(--text-muted);font-size:13px">{{ p.county_name }}, {{ p.state }}</td>
+          <td>{{ status_badge(p.status) | safe }}</td>
+          <td>
+            {% if p.last_verified %}
+              <div class="cell-date">{{ p.last_verified | friendly_date }}</div>
+              <div class="cell-date-sub">{{ p.last_verified | days_ago }}</div>
+            {% else %}<span style="color:var(--text-dim)">—</span>{% endif %}
+          </td>
+          <td>
+            <div class="cell-date">{{ p.last_reviewed | friendly_date if p.last_reviewed else "—" }}</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-clipboard empty-state-icon"></i>
+  <div class="empty-state-title">No providers on record</div>
+  <p>No verifications on file for this plan yet.</p>
+  <a href="{{ url_for('index') }}" class="btn-primary-custom" style="margin-top:16px;display:inline-flex">
+    <i class="bi bi-plus"></i> Request a Verification
+  </a>
+</div>
+{% endif %}
+
+{% elif not selected_plan_key %}
+<div class="empty-state">
+  <i class="bi bi-share empty-state-icon"></i>
+  <div class="empty-state-title">Select a plan</div>
+  <p>Choose a state and plan above to see which providers have confirmed participation.</p>
+</div>
+{% endif %}
+{% endblock %}

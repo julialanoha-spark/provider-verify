@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}{{ plan.plan_name }}{% endblock %}
+
+{% block content %}
+<a href="javascript:history.back()" class="back-link">
+  <i class="bi bi-arrow-left"></i> Back
+</a>
+
+<div class="plan-callout" style="margin-bottom:28px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+    <div>
+      <div class="plan-callout-name">{{ plan.plan_name }}</div>
+      <div class="plan-callout-meta">
+        {{ plan.carrier }}
+        &nbsp;&middot;&nbsp;
+        <span class="plan-type-pill">{{ plan.plan_name | plan_type }}</span>
+        &nbsp;&middot;&nbsp;
+        {{ plan.state }}
+        &nbsp;&middot;&nbsp;
+        {{ plan.contract_id }}-{{ plan.plan_id }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Request verification panel -->
+<div class="card" style="margin-bottom:28px">
+  <div class="card-header">
+    <i class="bi bi-send"></i> Request Verification for a Provider
+  </div>
+  <div class="card-body">
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
+      Search for a provider and send a verification request confirming they accept this plan.
+    </p>
+    <div style="position:relative;max-width:480px">
+      <label class="field-label">Provider name or NPI</label>
+      <div class="input-with-icon">
+        <i class="bi bi-search input-icon"></i>
+        <input type="text" id="providerSearch" class="input-field"
+               placeholder="e.g. Dr. Santos or 1234567890" autocomplete="off">
+      </div>
+      <div id="providerResults" class="autocomplete-list d-none"></div>
+    </div>
+
+    <form id="verifyForm" action="{{ url_for('verify') }}" method="post"
+          class="d-none" style="margin-top:16px;padding:16px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius)">
+      <input type="hidden" name="contract_id" value="{{ plan.contract_id }}">
+      <input type="hidden" name="plan_id" value="{{ plan.plan_id }}">
+      <input type="hidden" name="segment_id" value="{{ plan.segment_id }}">
+      <input type="hidden" name="provider_npi" id="selectedNpi">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:13.5px;font-weight:600;color:var(--accent)" id="selectedProviderName"></div>
+        <div style="flex:1;min-width:160px">
+          <input type="text" name="requested_by" class="input-field"
+                 placeholder="Your name (agent)" style="font-size:13px">
+        </div>
+        <button type="submit" class="btn-primary-custom" style="white-space:nowrap">
+          <i class="bi bi-send"></i> Request Verification
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Providers on record -->
+<div class="page-header" style="margin-bottom:16px;padding-bottom:14px">
+  <div class="page-title" style="font-size:16px">Provider Verification Status</div>
+</div>
+
+{% if verified_providers %}
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Specialty</th>
+          <th>State</th>
+          <th>Status</th>
+          <th>Last Verified</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in verified_providers %}
+        <tr>
+          <td>
+            <a href="{{ url_for('provider_detail', npi=p.npi) }}" class="cell-link">{{ p.name }}</a>
+            {% if p.practice %}<div class="cell-secondary">{{ p.practice }}</div>{% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:13px">{{ p.specialty or "—" }}</td>
+          <td style="color:var(--text-muted);font-size:13px">{{ p.state }}</td>
+          <td>{{ status_badge(p.status) | safe }}</td>
+          <td><div class="cell-date">{{ p.last_verified | friendly_date }}</div></td>
+          <td>
+            <a href="{{ url_for('provider_detail', npi=p.npi) }}" class="btn-sm-ghost">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-clipboard empty-state-icon"></i>
+  <div class="empty-state-title">No verifications on file</div>
+  <p>Search for a provider above to request the first verification for this plan.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const input = document.getElementById("providerSearch");
+const results = document.getElementById("providerResults");
+const form = document.getElementById("verifyForm");
+let debounce;
+
+input.addEventListener("input", () => {
+  clearTimeout(debounce);
+  const q = input.value.trim();
+  if (q.length < 2) { results.classList.add("d-none"); return; }
+
+  debounce = setTimeout(() => {
+    fetch(`/api/providers/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        results.innerHTML = "";
+        if (!data.length) {
+          results.innerHTML = '<div class="autocomplete-item" style="color:var(--text-dim)">No providers found</div>';
+        } else {
+          data.forEach(p => {
+            const a = document.createElement("a");
+            a.className = "autocomplete-item";
+            a.href = "#";
+            a.innerHTML = `<div class="autocomplete-item-name">${p.name}</div>
+              <div class="autocomplete-item-meta">${p.specialty || ''} &bull; ${p.state} &bull; NPI ${p.npi}</div>`;
+            a.addEventListener("click", e => {
+              e.preventDefault();
+              document.getElementById("selectedNpi").value = p.npi;
+              document.getElementById("selectedProviderName").textContent = p.name;
+              input.value = p.name;
+              results.classList.add("d-none");
+              form.classList.remove("d-none");
+            });
+            results.appendChild(a);
+          });
+        }
+        results.classList.remove("d-none");
+      });
+  }, 250);
+});
+
+document.addEventListener("click", e => {
+  if (!results.contains(e.target) && e.target !== input) results.classList.add("d-none");
+});
+</script>
+{% endblock %}

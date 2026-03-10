@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+
+{% block content %}
+<div class="search-hero">
+
+  <h1 class="search-hero-title">Network<br><span>Verification</span></h1>
+  <p class="search-hero-sub">Confirm whether a provider accepts a Medicare Advantage plan — and build a living, timestamped directory agents can trust.</p>
+
+  <!-- Mode toggle -->
+  <div class="search-toggle mb-4">
+    <button class="search-toggle-btn {% if mode != 'plan' %}active{% endif %}" id="btn-provider"
+            onclick="showPane('provider')">
+      <i class="bi bi-person-vcard" style="margin-right:6px"></i>Search by Provider
+    </button>
+    <button class="search-toggle-btn {% if mode == 'plan' %}active{% endif %}" id="btn-plan"
+            onclick="showPane('plan')">
+      <i class="bi bi-geo-alt" style="margin-right:6px"></i>Search by Plan + ZIP
+    </button>
+  </div>
+
+  <!-- Path A: Provider -->
+  <div id="pane-provider" {% if mode == 'plan' %}style="display:none"{% endif %}>
+    <label class="field-label">Provider name or NPI</label>
+    <div class="input-with-icon" style="position:relative">
+      <i class="bi bi-search input-icon"></i>
+      <input type="text" id="providerSearch" class="input-field input-field-lg"
+             placeholder="e.g. Dr. Santos or 1234567890" autocomplete="off">
+      <div id="providerResults" class="autocomplete-list d-none"></div>
+    </div>
+  </div>
+
+  <!-- Path B: Plan + ZIP -->
+  <div id="pane-plan" {% if mode != 'plan' %}style="display:none"{% endif %}>
+    <form action="{{ url_for('plan_search') }}" method="get">
+      <label class="field-label">ZIP code</label>
+      <div style="display:flex;gap:10px">
+        <input type="text" name="zip" class="input-field input-field-lg"
+               placeholder="e.g. 33101" pattern="\d{5}" maxlength="5"
+               style="flex:1">
+        <button type="submit" class="btn-primary-custom" style="white-space:nowrap">
+          Find Plans <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Stat tiles -->
+  <div class="stat-grid">
+    <div class="stat-tile">
+      <div class="stat-icon-wrap stat-icon-verified"><i class="bi bi-check-circle-fill"></i></div>
+      <div>
+        <div class="stat-label">Verified</div>
+        <div class="stat-value">—</div>
+      </div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon-wrap stat-icon-pending"><i class="bi bi-hourglass-split"></i></div>
+      <div>
+        <div class="stat-label">Pending</div>
+        <div class="stat-value">—</div>
+      </div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-icon-wrap stat-icon-total"><i class="bi bi-building-check"></i></div>
+      <div>
+        <div class="stat-label">Providers</div>
+        <div class="stat-value">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showPane(pane) {
+  document.getElementById('pane-provider').style.display = pane === 'provider' ? '' : 'none';
+  document.getElementById('pane-plan').style.display = pane === 'plan' ? '' : 'none';
+  document.getElementById('btn-provider').classList.toggle('active', pane === 'provider');
+  document.getElementById('btn-plan').classList.toggle('active', pane === 'plan');
+}
+
+const input = document.getElementById("providerSearch");
+const results = document.getElementById("providerResults");
+let debounce;
+
+if (input) {
+  input.addEventListener("input", () => {
+    clearTimeout(debounce);
+    const q = input.value.trim();
+    if (q.length < 2) { results.classList.add("d-none"); return; }
+
+    debounce = setTimeout(() => {
+      fetch(`/api/providers/search?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          results.innerHTML = "";
+          if (!data.length) {
+            results.innerHTML = '<div class="autocomplete-item" style="color:var(--text-dim)">No providers found</div>';
+          } else {
+            data.forEach(p => {
+              const a = document.createElement("a");
+              a.className = "autocomplete-item";
+              a.href = `/provider/${p.npi}`;
+              a.innerHTML = `<div class="autocomplete-item-name">${p.name}</div>
+                <div class="autocomplete-item-meta">${p.specialty || ''} &bull; ${p.state} &bull; NPI ${p.npi}</div>`;
+              results.appendChild(a);
+            });
+          }
+          results.classList.remove("d-none");
+        });
+    }, 250);
+  });
+
+  document.addEventListener("click", e => {
+    if (!results.contains(e.target) && e.target !== input) results.classList.add("d-none");
+  });
+}
+</script>
+{% endblock %}

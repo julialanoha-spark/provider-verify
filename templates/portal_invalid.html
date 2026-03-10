@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Invalid Link{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6 text-center py-5">
+    <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size:3rem"></i>
+    <h3 class="mt-3">This Link Is Invalid</h3>
+    <p class="text-muted">This verification link may have expired or already been used.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary-custom">Return to Search</a>
+  </div>
+</div>
+{% endblock %}

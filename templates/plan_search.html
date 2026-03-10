@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Plan Search{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="back-link">
+  <i class="bi bi-arrow-left"></i> Back
+</a>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Medicare Advantage Plans</div>
+    {% if zip_info %}
+    <div class="page-subtitle">
+      <span class="font-mono">{{ zip_code }}</span> &mdash;
+      {{ zip_info.county_name }}, {{ zip_info.state }}
+      &mdash; {{ plans|length }} plans available
+    </div>
+    {% else %}
+    <div class="page-subtitle">Search by ZIP code to find available plans</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Search bar -->
+<form action="{{ url_for('plan_search') }}" method="get"
+      style="display:flex;gap:10px;align-items:flex-end;margin-bottom:24px;max-width:440px">
+  <div style="flex:1">
+    <label class="field-label">ZIP Code</label>
+    <input type="text" name="zip" class="input-field"
+           value="{{ zip_code }}" placeholder="e.g. 33101"
+           pattern="\d{5}" maxlength="5">
+  </div>
+  <button type="submit" class="btn-primary-custom">Search</button>
+</form>
+
+{% if zip_code and not zip_info %}
+<div class="flash-message flash-warning">
+  <i class="bi bi-exclamation-triangle"></i>
+  ZIP code <strong>{{ zip_code }}</strong> was not found. Try a different ZIP.
+  <button class="flash-close" onclick="this.parentElement.remove()">×</button>
+</div>
+{% elif zip_info and not plans %}
+<div class="flash-message flash-info">
+  <i class="bi bi-info-circle"></i>
+  No Medicare Advantage plans found for ZIP {{ zip_code }}.
+  <button class="flash-close" onclick="this.parentElement.remove()">×</button>
+</div>
+{% elif plans %}
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <input type="text" id="planFilter" class="input-field"
+           placeholder="Filter by carrier or plan name…" style="width:280px">
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="data-table" id="planTable">
+      <thead>
+        <tr>
+          <th>Plan Name</th>
+          <th>Carrier</th>
+          <th>Type</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plans %}
+        <tr class="plan-row">
+          <td>
+            <div class="cell-primary" style="font-size:13px">{{ p.plan_name }}</div>
+            <div class="cell-mono">{{ p.contract_id }}-{{ p.plan_id }}</div>
+          </td>
+          <td style="color:var(--text-muted);font-size:13px">{{ p.carrier }}</td>
+          <td><span class="plan-type-pill">{{ p.plan_name | plan_type }}</span></td>
+          <td>
+            <a href="{{ url_for('plan_detail', contract_id=p.contract_id, plan_id=p.plan_id, segment_id=p.segment_id) }}"
+               class="btn-sm-ghost">
+              View <i class="bi bi-arrow-right"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% elif not zip_code %}
+<div class="empty-state">
+  <i class="bi bi-pin-map empty-state-icon"></i>
+  <div class="empty-state-title">Enter a ZIP code</div>
+  <p>Find all Medicare Advantage plans available in any U.S. area.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const filterInput = document.getElementById("planFilter");
+if (filterInput) {
+  filterInput.addEventListener("input", () => {
+    const q = filterInput.value.toLowerCase();
+    document.querySelectorAll(".plan-row").forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+  });
+}
+</script>
+{% endblock %}

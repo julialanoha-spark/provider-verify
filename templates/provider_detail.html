@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}{{ provider.name }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="back-link">
+  <i class="bi bi-arrow-left"></i> Back to Search
+</a>
+
+<!-- Provider card -->
+<div class="provider-card">
+  <div class="provider-avatar"><i class="bi bi-person-fill"></i></div>
+  <div style="flex:1">
+    <div class="provider-name">{{ provider.name }}</div>
+    <div class="provider-meta">
+      {% if provider.practice %}
+      <span class="provider-meta-item">
+        <i class="bi bi-building"></i> {{ provider.practice }}
+      </span>
+      {% endif %}
+      <span class="provider-meta-item">
+        <i class="bi bi-activity"></i> {{ provider.specialty or "General Practice" }}
+      </span>
+      <span class="provider-meta-item">
+        <i class="bi bi-geo-alt"></i> {{ provider.county_name }}, {{ provider.state }} {{ provider.zip_code }}
+      </span>
+      <span class="provider-meta-item font-mono" style="font-size:11.5px">
+        NPI {{ provider.npi }}
+      </span>
+      {% if provider.phone %}
+      <span class="provider-meta-item">
+        <i class="bi bi-telephone"></i> {{ provider.phone }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <span class="page-title" style="font-size:16px">MA Plans — {{ provider.state }}</span>
+    <span style="color:var(--text-dim);font-size:12px;font-family:var(--font-mono)">{{ plans|length }} plans</span>
+  </div>
+  <div class="toolbar-right">
+    <input type="text" id="planFilter" class="input-field"
+           placeholder="Filter plans…" style="width:200px">
+    <select id="carrierFilter" class="select-field" style="width:180px">
+      <option value="">All Carriers</option>
+      {% for c in carriers %}
+      <option value="{{ c }}">{{ c }}</option>
+      {% endfor %}
+    </select>
+    <select id="statusFilter" class="select-field" style="width:160px">
+      <option value="">All Statuses</option>
+      <option value="Verified">Verified</option>
+      <option value="Pending">Pending</option>
+      <option value="Declined">Declined</option>
+      <option value="Not Requested">Not Requested</option>
+    </select>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="data-table" id="planTable">
+      <thead>
+        <tr>
+          <th>Plan Name</th>
+          <th>Carrier</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Last Verified</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plans %}
+        {% set status = p.status or "Not Requested" %}
+        <tr class="plan-row" data-carrier="{{ p.carrier }}" data-status="{{ status }}">
+          <td>
+            <div class="cell-primary" style="font-size:13px">{{ p.plan_name }}</div>
+            <div class="cell-mono">{{ p.contract_id }}-{{ p.plan_id }}</div>
+          </td>
+          <td style="color:var(--text-muted);font-size:13px">{{ p.carrier }}</td>
+          <td><span class="plan-type-pill">{{ p.plan_name | plan_type }}</span></td>
+          <td>{{ status_badge(status) | safe }}</td>
+          <td>
+            {% if p.last_verified %}
+              <div class="cell-date">{{ p.last_verified | friendly_date }}</div>
+              <div class="cell-date-sub">{{ p.last_verified | days_ago }}</div>
+            {% else %}<span style="color:var(--text-dim)">—</span>{% endif %}
+          </td>
+          <td>
+            {% if not p.ver_id %}
+            <form action="{{ url_for('verify') }}" method="post">
+              <input type="hidden" name="provider_npi" value="{{ provider.npi }}">
+              <input type="hidden" name="contract_id" value="{{ p.contract_id }}">
+              <input type="hidden" name="plan_id" value="{{ p.plan_id }}">
+              <input type="hidden" name="segment_id" value="{{ p.segment_id }}">
+              <input type="hidden" name="requested_by" value="Agent">
+              <button type="submit" class="btn-primary-custom" style="padding:6px 14px;font-size:12px">
+                <i class="bi bi-send"></i> Request
+              </button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('email_preview', ver_id=p.ver_id) }}"
+               class="btn-sm-ghost">
+              <i class="bi bi-envelope"></i> Email
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if not plans %}
+<div class="empty-state">
+  <i class="bi bi-clipboard-x empty-state-icon"></i>
+  <div class="empty-state-title">No plans found</div>
+  <p>No Medicare Advantage plans found for {{ provider.state }}.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+  const text = document.getElementById("planFilter").value.toLowerCase();
+  const carrier = document.getElementById("carrierFilter").value;
+  const status = document.getElementById("statusFilter").value;
+  document.querySelectorAll(".plan-row").forEach(row => {
+    const matchText = !text || row.textContent.toLowerCase().includes(text);
+    const matchCarrier = !carrier || row.dataset.carrier === carrier;
+    const matchStatus = !status || row.dataset.status === status;
+    row.style.display = (matchText && matchCarrier && matchStatus) ? "" : "none";
+  });
+}
+["planFilter","carrierFilter","statusFilter"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", applyFilters);
+});
+</script>
+{% endblock %}

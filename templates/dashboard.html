@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Dashboard</div>
+    <div class="page-subtitle">All verification requests and their current status</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{{ url_for('index') }}" class="btn-primary-custom">
+      <i class="bi bi-plus"></i> New Request
+    </a>
+    <form action="{{ url_for('reset') }}" method="post"
+          onsubmit="return confirm('Reset and re-seed the database?')">
+      <button type="submit" class="btn-ghost">
+        <i class="bi bi-arrow-counterclockwise"></i> Reset Demo
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Status tabs -->
+<div class="filter-tabs">
+  <a href="{{ url_for('dashboard') }}"
+     class="filter-tab {% if status_filter == 'all' %}active{% endif %}">
+    All <span class="tab-count">{{ total }}</span>
+  </a>
+  <a href="{{ url_for('dashboard', status='Verified') }}"
+     class="filter-tab {% if status_filter == 'Verified' %}active{% endif %}">
+    Verified <span class="tab-count">{{ count_map.get('Verified', 0) }}</span>
+  </a>
+  <a href="{{ url_for('dashboard', status='Pending') }}"
+     class="filter-tab {% if status_filter == 'Pending' %}active{% endif %}">
+    Pending <span class="tab-count">{{ count_map.get('Pending', 0) }}</span>
+  </a>
+  <a href="{{ url_for('dashboard', status='Declined') }}"
+     class="filter-tab {% if status_filter == 'Declined' %}active{% endif %}">
+    Declined <span class="tab-count">{{ count_map.get('Declined', 0) }}</span>
+  </a>
+  <a href="{{ url_for('dashboard', status='Unknown') }}"
+     class="filter-tab {% if status_filter == 'Unknown' %}active{% endif %}">
+    Unknown <span class="tab-count">{{ count_map.get('Unknown', 0) }}</span>
+  </a>
+</div>
+
+{% if verifications %}
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Plan</th>
+          <th>Status</th>
+          <th>Requested</th>
+          <th>Last Verified</th>
+          <th>Last Reviewed</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in verifications %}
+        <tr>
+          <td>
+            <a href="{{ url_for('provider_detail', npi=v.npi) }}" class="cell-link">{{ v.provider_name }}</a>
+            <div class="cell-secondary">{{ v.specialty or "" }}{% if v.specialty %} &middot; {% endif %}{{ v.provider_state }}</div>
+          </td>
+          <td>
+            <div class="cell-primary" style="font-size:13px">{{ v.plan_name | truncate(44, true, '…') }}</div>
+            <div class="cell-mono">{{ v.contract_id }}-{{ v.plan_id_ref }}</div>
+          </td>
+          <td>{{ status_badge(v.status) | safe }}</td>
+          <td>
+            <div class="cell-date">{{ v.requested_at | friendly_date }}</div>
+            <div class="cell-date-sub">{{ v.requested_at | days_ago }}</div>
+          </td>
+          <td>
+            {% if v.last_verified %}
+              <div class="cell-date">{{ v.last_verified | friendly_date }}</div>
+              <div class="cell-date-sub">{{ v.last_verified | days_ago }}</div>
+            {% else %}<span style="color:var(--text-dim)">—</span>{% endif %}
+          </td>
+          <td>
+            {% if v.last_reviewed %}
+              <div class="cell-date">{{ v.last_reviewed | friendly_date }}</div>
+            {% else %}<span style="color:var(--text-dim)">—</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="{{ url_for('email_preview', ver_id=v.id) }}"
+                 class="btn-sm-ghost" title="Email preview">
+                <i class="bi bi-envelope"></i>
+              </a>
+              {% if v.token %}
+              <a href="{{ url_for('provider_portal', token=v.token) }}"
+                 class="btn-sm-ghost" title="Provider portal">
+                <i class="bi bi-box-arrow-up-right"></i>
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-clipboard empty-state-icon"></i>
+  <div class="empty-state-title">No verifications yet</div>
+  <p>Request your first verification to get started.</p>
+  <a href="{{ url_for('index') }}" class="btn-primary-custom" style="margin-top:16px;display:inline-flex">
+    <i class="bi bi-plus"></i> New Request
+  </a>
+</div>
+{% endif %}
+{% endblock %}

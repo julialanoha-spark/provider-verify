@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Email Preview{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('dashboard') }}" class="back-link">
+  <i class="bi bi-arrow-left"></i> Dashboard
+</a>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Verification Request</div>
+    <div class="page-subtitle">Preview of the outreach email that would be sent to the provider office</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn-primary-custom" id="mockSendBtn">
+      <i class="bi bi-send"></i> Send Email (Simulated)
+    </button>
+    <a href="{{ portal_url }}" class="btn-ghost" target="_blank">
+      <i class="bi bi-box-arrow-up-right"></i> Open Portal
+    </a>
+  </div>
+</div>
+
+<div id="sendConfirm" class="flash-message flash-success d-none" style="margin-bottom:20px">
+  <i class="bi bi-check-circle"></i>
+  Email queued for {{ ver.practice or ver.provider_name }}. Status is now <strong>Pending</strong>.
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start">
+
+  <!-- Email chrome -->
+  <div class="email-chrome">
+    <div class="email-chrome-bar">
+      <div class="email-dot" style="background:#ef4444"></div>
+      <div class="email-dot" style="background:#fbbf24"></div>
+      <div class="email-dot" style="background:#34d399"></div>
+      <span class="email-chrome-label">verification@providerverify.example.com — New Message</span>
+    </div>
+
+    <div class="email-header-row">
+      <span class="email-header-label">From</span>
+      <span class="email-header-value">verification@providerverify.example.com</span>
+    </div>
+    <div class="email-header-row">
+      <span class="email-header-label">To</span>
+      <span class="email-header-value">{{ ver.provider_email or "office@" + (ver.practice or ver.provider_name).lower().replace(" ","") + ".example.com" }}</span>
+    </div>
+    <div class="email-subject-row">
+      Medicare Plan Acceptance Verification — {{ ver.plan_name }}
+    </div>
+
+    <div class="email-body">
+      <p>Dear {{ ver.practice or ver.provider_name }},</p>
+
+      <p>We are reaching out on behalf of <strong>{{ ver.requested_by or "your agent" }}</strong>
+      to verify whether your practice currently accepts patients enrolled in:</p>
+
+      <div class="plan-callout" style="margin:20px 0">
+        <div class="plan-callout-name">{{ ver.plan_name }}</div>
+        <div class="plan-callout-meta">{{ ver.carrier }} &nbsp;&middot;&nbsp; {{ ver.cms_contract_id }}-{{ ver.cms_plan_id }}</div>
+      </div>
+
+      <p>To confirm or update your participation status, please click one of the options below:</p>
+
+      <div class="email-cta-row">
+        <a href="{{ portal_url }}" class="btn-success-custom">
+          <i class="bi bi-check-circle-fill"></i> Accept This Plan
+        </a>
+        <a href="{{ portal_url }}" class="btn-danger-custom">
+          <i class="bi bi-x-circle-fill"></i> Decline / Not Participating
+        </a>
+      </div>
+
+      <p style="font-size:12.5px;color:var(--text-dim);margin-top:8px">
+        Both links take you to a secure page where you can also review and update your status for other
+        Medicare Advantage plans — saving you time if multiple plans need updating.
+      </p>
+
+      <p style="margin-top:24px">
+        This verification will be recorded in our network directory and shared with Medicare agents
+        to help beneficiaries identify in-network providers when comparing plans.
+      </p>
+
+      <p>If you have questions, contact us at
+      <a href="mailto:verification@providerverify.example.com" style="color:var(--accent)">
+        verification@providerverify.example.com
+      </a>.</p>
+
+      <p>Thank you,<br><strong>The ProviderVerify Team</strong></p>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div>
+    <div class="detail-card">
+      <div class="detail-card-header">Verification Details</div>
+      <div class="detail-row">
+        <span class="detail-key">Provider</span>
+        <span class="detail-val">{{ ver.provider_name }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">NPI</span>
+        <span class="detail-val detail-val-mono">{{ ver.npi }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Plan</span>
+        <span class="detail-val" style="font-size:11.5px">{{ ver.plan_name }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Carrier</span>
+        <span class="detail-val">{{ ver.carrier }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Status</span>
+        <span class="detail-val">{{ status_badge(ver.status) | safe }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">Requested</span>
+        <span class="detail-val detail-val-mono">{{ ver.requested_at | friendly_date }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-key">By</span>
+        <span class="detail-val">{{ ver.requested_by or "—" }}</span>
+      </div>
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-card-header">Portal Link</div>
+      <div style="padding:14px 16px">
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px">
+          Share this link with the provider office:
+        </div>
+        <div class="copy-row">
+          <div class="copy-input" id="portalLink">{{ portal_url }}</div>
+          <button class="copy-btn" onclick="copyLink()"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div id="copyMsg" class="d-none" style="font-size:11.5px;color:var(--verified);margin-top:6px">
+          Copied to clipboard
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById("mockSendBtn").addEventListener("click", function() {
+  this.disabled = true;
+  this.innerHTML = '<i class="bi bi-check"></i> Sent!';
+  document.getElementById("sendConfirm").classList.remove("d-none");
+});
+
+function copyLink() {
+  const text = document.getElementById("portalLink").textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const msg = document.getElementById("copyMsg");
+    msg.classList.remove("d-none");
+    setTimeout(() => msg.classList.add("d-none"), 2000);
+  });
+}
+</script>
+{% endblock %}
